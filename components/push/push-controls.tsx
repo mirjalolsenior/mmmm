@@ -1,7 +1,10 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
+import { CheckCircle2, Loader2, XCircle } from "lucide-react"
 
 function base64UrlToUint8Array(base64Url: string) {
   const padding = "=".repeat((4 - (base64Url.length % 4)) % 4)
@@ -26,6 +29,29 @@ export function PushControls() {
   const vapidPublicKey = useMemo(() => process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY, [])
   const [status, setStatus] = useState<"idle" | "working" | "enabled" | "error">("idle")
   const [msg, setMsg] = useState<string>("")
+
+  // Initial state: detect if notifications + subscription already exist
+  useEffect(() => {
+    let cancelled = false
+
+    async function detect() {
+      try {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window)) return
+        if (Notification.permission !== "granted") return
+        const reg = await navigator.serviceWorker.getRegistration("/")
+        if (!reg) return
+        const sub = await reg.pushManager.getSubscription()
+        if (!cancelled && sub) setStatus("enabled")
+      } catch {
+        // ignore
+      }
+    }
+
+    detect()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   async function enable() {
     try {
@@ -104,15 +130,83 @@ export function PushControls() {
     }
   }
 
+  async function disable() {
+    try {
+      setStatus("working")
+      setMsg("")
+
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setStatus("idle")
+        return
+      }
+
+      const reg = await navigator.serviceWorker.getRegistration("/")
+      const sub = await reg?.pushManager.getSubscription()
+
+      if (sub) {
+        // Try to remove from DB too (best-effort)
+        fetch("/api/push/unsubscribe", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        }).catch(() => {})
+
+        await sub.unsubscribe().catch(() => {})
+      }
+
+      setStatus("idle")
+      setMsg("O'chirildi")
+    } catch (e: any) {
+      setStatus("error")
+      setMsg(e?.message || "Xatolik")
+    }
+  }
+
+  const isEnabled = status === "enabled"
+  const isWorking = status === "working"
+
+  const badge =
+    status === "enabled" ? (
+      <Badge variant="secondary" className="gap-1">
+        <CheckCircle2 className="h-3.5 w-3.5" /> Yoqilgan
+      </Badge>
+    ) : status === "working" ? (
+      <Badge variant="secondary" className="gap-1">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Tekshirilmoqda
+      </Badge>
+    ) : status === "error" ? (
+      <Badge variant="destructive" className="gap-1">
+        <XCircle className="h-3.5 w-3.5" /> Xato
+      </Badge>
+    ) : (
+      <Badge variant="outline">O'chirilgan</Badge>
+    )
+
   return (
-    <div className="flex items-center gap-2">
-      <Button variant="outline" onClick={enable} disabled={status === "working"}>
-        Bildirishnoma
-      </Button>
-      <Button onClick={sendTest} disabled={status === "working"}>
-        Test
-      </Button>
-      {msg ? <span className="text-xs text-muted-foreground max-w-[260px] truncate">{msg}</span> : null}
+    <div className="w-full">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={isEnabled}
+            onCheckedChange={(checked) => (checked ? enable() : disable())}
+            disabled={isWorking}
+            aria-label="Push bildirishnoma"
+          />
+          <div className="leading-tight">
+            <div className="text-sm font-medium">Push bildirishnoma</div>
+            <div className="text-xs text-muted-foreground">Android (Chrome) va iOS 16.4+ (PWA)</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {badge}
+          <Button size="sm" onClick={sendTest} disabled={isWorking || !isEnabled}>
+            Test yuborish
+          </Button>
+        </div>
+      </div>
+
+      {msg ? <div className="mt-2 text-xs text-muted-foreground">{msg}</div> : null}
     </div>
   )
 }

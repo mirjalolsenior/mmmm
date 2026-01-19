@@ -10,6 +10,7 @@ import { KronkaModule } from "@/components/kronka/kronka-module"
 import { ArxivModule } from "@/components/arxiv/arxiv-module"
 import { AdminModule } from "@/components/admin/admin-module"
 import { HisobotlarModule } from "@/components/hisobotlar/hisobotlar-module"
+import { SozlamalarModule } from "@/components/sozlamalar/sozlamalar-module"
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState("tovarlar")
@@ -88,7 +89,7 @@ export default function HomePage() {
       case "admin":
         return <AdminModule />
       case "sozlamalar":
-        return <Placeholder title="Sozlamalar" subtitle="Tizim sozlamalari bo'limi" />
+        return <SozlamalarModule />
       default:
         return <Placeholder title={`${getPageTitle(activeTab)} moduli`} subtitle={getPageSubtitle(activeTab)} />
     }

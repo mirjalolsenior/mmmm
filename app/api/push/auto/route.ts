@@ -141,12 +141,12 @@ export async function GET(req: Request) {
       console.warn("[push/auto] low stock query error:", lowErr.message)
     }
 
-    // 2) Orders due soon (zakazlar.qachon_berish_kerak)
+    // 2) Orders: 1 day before + same day + overdue (zakazlar.qachon_berish_kerak)
+    //    We fetch everything up to `futureDay` (today + daysBefore), then split by date.
     const { data: dueOrders, error: dueErr } = await supabase
       .from("zakazlar")
       .select("id,tovar_turi,raqami,qachon_berish_kerak,qancha_qoldi")
       .not("qachon_berish_kerak", "is", null)
-      .gte("qachon_berish_kerak", today)
       .lte("qachon_berish_kerak", futureDay)
       .order("qachon_berish_kerak", { ascending: true })
       .limit(20)
@@ -189,31 +189,80 @@ export async function GET(req: Request) {
       }
     }
 
-    // Send due orders once per hour (1 day before + same day window)
+    // Send due orders once per hour, but split into:
+    // - 1 day before (date === futureDay)
+    // - same day (date === today)
+    // - overdue (date < today)
     if ((dueOrders || []).length > 0) {
-      const marker = `due_orders_${today}_${hourUTC(now)}`
-      const already = await isAlreadySentToday(marker)
-      if (!already) {
-        const items = (dueOrders || []).slice(0, 3)
-        const rest = (dueOrders || []).length - items.length
-        const body =
+      const toIso = (v: any) => String(v).slice(0, 10)
+
+      const overdue = (dueOrders || []).filter((o) => toIso(o.qachon_berish_kerak) < today)
+      const sameDay = (dueOrders || []).filter((o) => toIso(o.qachon_berish_kerak) === today)
+      const beforeDay = (dueOrders || []).filter((o) => toIso(o.qachon_berish_kerak) === futureDay)
+
+      const buildBody = (list: any[]) => {
+        const items = list.slice(0, 3)
+        const rest = list.length - items.length
+        return (
           items
             .map((o) => {
-              const d = String(o.qachon_berish_kerak)
+              const d = toIso(o.qachon_berish_kerak)
               const name = `${o.tovar_turi}${o.raqami ? ` (${o.raqami})` : ""}`
               return `${name} - ${d}`
             })
             .join(", ") + (rest > 0 ? `, +${rest} ta` : "")
+        )
+      }
 
-        const res = await sendToAll({
-          title: "Zakaz vaqti yaqin",
-          body,
-          url: "/",
-        })
-        await markSent(marker)
-        summary.sent.push({ type: "due_orders", ...res })
-      } else {
-        summary.skipped.push({ type: "due_orders", reason: "already_sent_this_hour" })
+      // 1 kun oldin
+      if (beforeDay.length > 0) {
+        const marker = `due_orders_before_${today}_${hourUTC(now)}`
+        const already = await isAlreadySentToday(marker)
+        if (!already) {
+          const res = await sendToAll({
+            title: "Zakaz 1 kun qoldi",
+            body: buildBody(beforeDay),
+            url: "/",
+          })
+          await markSent(marker)
+          summary.sent.push({ type: "due_orders_1day_before", count: beforeDay.length, ...res })
+        } else {
+          summary.skipped.push({ type: "due_orders_1day_before", reason: "already_sent_this_hour" })
+        }
+      }
+
+      // o'sha kuni
+      if (sameDay.length > 0) {
+        const marker = `due_orders_today_${today}_${hourUTC(now)}`
+        const already = await isAlreadySentToday(marker)
+        if (!already) {
+          const res = await sendToAll({
+            title: "Bugun zakaz vaqti",
+            body: buildBody(sameDay),
+            url: "/",
+          })
+          await markSent(marker)
+          summary.sent.push({ type: "due_orders_today", count: sameDay.length, ...res })
+        } else {
+          summary.skipped.push({ type: "due_orders_today", reason: "already_sent_this_hour" })
+        }
+      }
+
+      // muddati o'tib ketgan (har soat eslatadi)
+      if (overdue.length > 0) {
+        const marker = `due_orders_overdue_${today}_${hourUTC(now)}`
+        const already = await isAlreadySentToday(marker)
+        if (!already) {
+          const res = await sendToAll({
+            title: "Zakaz muddati o'tib ketdi",
+            body: buildBody(overdue),
+            url: "/",
+          })
+          await markSent(marker)
+          summary.sent.push({ type: "due_orders_overdue", count: overdue.length, ...res })
+        } else {
+          summary.skipped.push({ type: "due_orders_overdue", reason: "already_sent_this_hour" })
+        }
       }
     }
 
