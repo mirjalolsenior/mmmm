@@ -1,8 +1,13 @@
-const { schedule } = require("@netlify/functions");
+// Netlify Scheduled Function (no extra dependencies)
+// Runs every hour and triggers the app endpoint that checks:
+// - low stock
+// - orders due (1 day before + same day)
 
-// Runs every hour on published deploys.
-// It calls the app endpoint: /api/push/auto (low stock + due orders)
-const handler = async () => {
+exports.config = {
+  schedule: "@hourly",
+};
+
+exports.handler = async () => {
   const siteUrl = process.env.URL || process.env.DEPLOY_PRIME_URL;
   if (!siteUrl) {
     console.error("[push-auto] Missing site URL env (URL/DEPLOY_PRIME_URL)");
@@ -10,23 +15,19 @@ const handler = async () => {
   }
 
   const cronKey = process.env.PUSH_CRON_KEY;
-  const endpoint = `${siteUrl.replace(/\/$/, "")}/api/push/auto`;
+  const base = siteUrl.replace(/\/$/, "");
+  const endpoint = cronKey
+    ? `${base}/api/push/auto?key=${encodeURIComponent(cronKey)}`
+    : `${base}/api/push/auto`;
 
   try {
-    const res = await fetch(endpoint, {
-      method: "GET",
-      headers: cronKey ? { "x-cron-key": cronKey } : {},
-    });
-
+    const res = await fetch(endpoint, { method: "GET" });
     const text = await res.text();
     console.log("[push-auto] status:", res.status);
     console.log("[push-auto] body:", text);
-
     return { statusCode: 200, body: "ok" };
   } catch (e) {
     console.error("[push-auto] error:", e);
     return { statusCode: 500, body: "error" };
   }
 };
-
-module.exports.handler = schedule("@hourly", handler);
