@@ -20,13 +20,12 @@ node scripts/generate-vapid.mjs
 ## 3) Netlify (yoki hosting) env qo‘ying
 
 ```bash
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=...  # generate-vapid chiqargan public key
-VAPID_PRIVATE_KEY=...             # generate-vapid chiqargan private key
-VAPID_SUBJECT=mailto:you@example.com
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=BDIgNkzEg9JpGXvCuESFWEYVZk1n7vht8EHiT_MQ5XkORtd-rq0GcPcQkMhQpfFcu6pibYjFJSYmocC4HlVjdYA
+VAPID_PRIVATE_KEY=NVIzBkpe8GJNoi-b7H-aPKpGXgYxMDoxrfWYAUVKQ3U
+VAPID_SUBJECT=amontagayev@gmail.com
 
-NEXT_PUBLIC_SUPABASE_URL=...
-SUPABASE_SERVICE_ROLE_KEY=...     # Supabase Project Settings → API
-
+NEXT_PUBLIC_SUPABASE_URL=https://yrcbciggffugzghddpdz.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlyY2JjaWdnZmZ1Z3pnaGRkcGR6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODgyOTAyNCwiZXhwIjoyMDg0NDA1MDI0fQ.bT_bI0zME9Q_AWDNXjXI02XK09v1bV951JnSRQ41GoU
 # ixtiyoriy (cron himoyasi va sozlamalar)
 PUSH_CRON_KEY=your_secret_key
 LOW_STOCK_THRESHOLD=3
