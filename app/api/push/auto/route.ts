@@ -84,10 +84,15 @@ async function isAlreadySentToday(markerKey: string) {
 
 async function markSent(markerKey: string) {
   const supabase = createSupabaseAdmin()
-  await supabase
+  // NOTE: Supabase query builders are not Promises, so they don't support `.catch()`.
+  // We ignore failures here on purpose (e.g., table not created yet), but we do log them.
+  const { error } = await supabase
     .from("push_meta")
     .upsert({ key: markerKey, value: { sent_at: new Date().toISOString() } }, { onConflict: "key" })
-    .catch(() => null)
+
+  if (error) {
+    console.warn("[push/auto] push_meta upsert error:", error.message)
+  }
 }
 
 export async function GET(req: Request) {
