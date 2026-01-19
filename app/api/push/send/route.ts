@@ -14,17 +14,35 @@ function assertEnv() {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
   const privateKey = process.env.VAPID_PRIVATE_KEY
   const subject = process.env.VAPID_SUBJECT || "mailto:admin@example.com"
-  if (!publicKey || !privateKey) {
-    throw new Error(
-      "Missing VAPID keys. Set NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY",
-    )
+
+  const missing: string[] = []
+  if (!publicKey) missing.push("NEXT_PUBLIC_VAPID_PUBLIC_KEY")
+  if (!privateKey) missing.push("VAPID_PRIVATE_KEY")
+
+  return {
+    ok: missing.length === 0,
+    missing,
+    publicKey: publicKey || "",
+    privateKey: privateKey || "",
+    subject,
   }
-  return { publicKey, privateKey, subject }
 }
 
 export async function POST(req: Request) {
   try {
-    const { publicKey, privateKey, subject } = assertEnv()
+    const env = assertEnv()
+    if (!env.ok) {
+      return NextResponse.json(
+        {
+          error: "Missing VAPID env vars",
+          missing: env.missing,
+          hint: "Netlify/Vercel ENV ga VAPID keylarni qo'ying (NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT)",
+        },
+        { status: 400 },
+      )
+    }
+
+    const { publicKey, privateKey, subject } = env
     webpush.setVapidDetails(subject, publicKey, privateKey)
 
     const supabase = createSupabaseAdmin()

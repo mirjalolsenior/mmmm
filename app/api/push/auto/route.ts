@@ -8,21 +8,33 @@ function assertEnv() {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
   const privateKey = process.env.VAPID_PRIVATE_KEY
   const subject = process.env.VAPID_SUBJECT || "mailto:admin@example.com"
-  if (!publicKey || !privateKey) {
-    throw new Error(
-      "Missing VAPID keys. Set NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY",
-    )
+  const missing: string[] = []
+  if (!publicKey) missing.push("NEXT_PUBLIC_VAPID_PUBLIC_KEY")
+  if (!privateKey) missing.push("VAPID_PRIVATE_KEY")
+
+  return {
+    ok: missing.length === 0,
+    missing,
+    publicKey: publicKey || "",
+    privateKey: privateKey || "",
+    subject,
   }
-  return { publicKey, privateKey, subject }
 }
 
 function isoDateUTC(d: Date) {
   return d.toISOString().slice(0, 10)
 }
 
+function hourUTC(d: Date) {
+  return String(d.getUTCHours()).padStart(2, "0")
+}
+
 async function sendToAll(payload: { title: string; body: string; url: string }) {
-  const { publicKey, privateKey, subject } = assertEnv()
-  webpush.setVapidDetails(subject, publicKey, privateKey)
+  const env = assertEnv()
+  if (!env.ok) {
+    throw new Error(`Missing VAPID env vars: ${env.missing.join(", ")}`)
+  }
+  webpush.setVapidDetails(env.subject, env.publicKey, env.privateKey)
 
   const supabase = createSupabaseAdmin()
   const { data, error } = await supabase
@@ -91,7 +103,22 @@ export async function GET(req: Request) {
       }
     }
 
-    const threshold = Number.parseInt(process.env.LOW_STOCK_THRESHOLD || "3", 10)
+    // Fail fast with a clear message if VAPID env vars are missing.
+    const env = assertEnv()
+    if (!env.ok) {
+      return NextResponse.json(
+        {
+          error: "Missing VAPID env vars",
+          missing: env.missing,
+          hint: "Netlify/Vercel ENV ga VAPID keylarni qo'ying (NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT)",
+        },
+        { status: 400 },
+      )
+    }
+
+    // User requirement: low stock < 10 and due orders (1 day before + same day)
+    // You can still override via ENV if needed.
+    const threshold = Number.parseInt(process.env.LOW_STOCK_THRESHOLD || "10", 10)
     const daysBefore = Number.parseInt(process.env.ORDER_NOTIFY_DAYS_BEFORE || "1", 10)
 
     const now = new Date()
@@ -138,9 +165,9 @@ export async function GET(req: Request) {
       skipped: [] as any[],
     }
 
-    // Send low stock once per day
+    // Send low stock once per hour (so it can auto-send every hour when still low)
     if ((lowStock || []).length > 0) {
-      const marker = `low_stock_${today}`
+      const marker = `low_stock_${today}_${hourUTC(now)}`
       const already = await isAlreadySentToday(marker)
       if (!already) {
         const items = (lowStock || []).slice(0, 3)
@@ -158,13 +185,13 @@ export async function GET(req: Request) {
         await markSent(marker)
         summary.sent.push({ type: "low_stock", ...res })
       } else {
-        summary.skipped.push({ type: "low_stock", reason: "already_sent_today" })
+        summary.skipped.push({ type: "low_stock", reason: "already_sent_this_hour" })
       }
     }
 
-    // Send due orders once per day
+    // Send due orders once per hour (1 day before + same day window)
     if ((dueOrders || []).length > 0) {
-      const marker = `due_orders_${today}`
+      const marker = `due_orders_${today}_${hourUTC(now)}`
       const already = await isAlreadySentToday(marker)
       if (!already) {
         const items = (dueOrders || []).slice(0, 3)
@@ -186,7 +213,7 @@ export async function GET(req: Request) {
         await markSent(marker)
         summary.sent.push({ type: "due_orders", ...res })
       } else {
-        summary.skipped.push({ type: "due_orders", reason: "already_sent_today" })
+        summary.skipped.push({ type: "due_orders", reason: "already_sent_this_hour" })
       }
     }
 

@@ -2,7 +2,6 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Roboto_Mono } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
@@ -55,7 +54,6 @@ export default function RootLayout({
       </head>
       <body className={`font-sans ${inter.variable} ${robotoMono.variable} bg-background min-h-screen`}>
         <Suspense fallback={null}>{children}</Suspense>
-        <Analytics />
         <Toaster />
       </body>
     </html>

@@ -20,36 +20,46 @@ node scripts/generate-vapid.mjs
 ## 3) Netlify (yoki hosting) env qo‘ying
 
 ```bash
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=BDIgNkzEg9JpGXvCuESFWEYVZk1n7vht8EHiT_MQ5XkORtd-rq0GcPcQkMhQpfFcu6pibYjFJSYmocC4HlVjdYA
-VAPID_PRIVATE_KEY=NVIzBkpe8GJNoi-b7H-aPKpGXgYxMDoxrfWYAUVKQ3U
-VAPID_SUBJECT=amontagayev@gmail.com
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=...  # generate-vapid chiqargan public key
+VAPID_PRIVATE_KEY=...             # generate-vapid chiqargan private key
+VAPID_SUBJECT=mailto:you@example.com
 
-NEXT_PUBLIC_SUPABASE_URL=https://yrcbciggffugzghddpdz.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlyY2JjaWdnZmZ1Z3pnaGRkcGR6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODgyOTAyNCwiZXhwIjoyMDg0NDA1MDI0fQ.bT_bI0zME9Q_AWDNXjXI02XK09v1bV951JnSRQ41GoU
+NEXT_PUBLIC_SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...     # Supabase Project Settings → API
+
 # ixtiyoriy (cron himoyasi va sozlamalar)
 PUSH_CRON_KEY=your_secret_key
-LOW_STOCK_THRESHOLD=3
+
+# Talab bo‘yicha default qiymatlar:
+# - tovar 10 donadan kam bo‘lsa
+# - zakaz 1 kun oldin + o‘sha kuni
+LOW_STOCK_THRESHOLD=10
 ORDER_NOTIFY_DAYS_BEFORE=1
 ```
 
 > Eslatma: `SUPABASE_SERVICE_ROLE_KEY` maxfiy — uni faqat server env’da saqlang.
 
 ## 4) Ishlatish
-Header’da **“Bildirishnoma”** tugmasini bosing → ruxsat bering.
+Ilova ichida **Sozlamalar** bo‘limiga kiring:
 
-Keyin **“Test”** tugmasi barcha saqlangan subscription’larga test bildirishnoma yuboradi.
+- **Bildirishnoma** tugmasini bosing → ruxsat bering.
+- **Test** tugmasi barcha saqlangan subscription’larga test bildirishnoma yuboradi.
 
-## 5) Avtomatik bildirishnoma (tovar kam / zakaz vaqti)
+## 5) Avtomatik bildirishnoma (har soat)
 
 Loyiha har safar quyidagilarni tekshiradi:
 
-- **Tovar kam qoldi**: `ombor.qoldiq <= LOW_STOCK_THRESHOLD`
-- **Zakaz vaqti yaqin**: `zakazlar.qachon_berish_kerak` bugundan `ORDER_NOTIFY_DAYS_BEFORE` kungacha
+- **Tovar kam qoldi**: `ombor.qoldiq <= LOW_STOCK_THRESHOLD` (default: **10**)
+- **Zakaz vaqti yaqin**: `zakazlar.qachon_berish_kerak` bugundan `ORDER_NOTIFY_DAYS_BEFORE` kungacha (default: **1 kun oldin + o‘sha kuni**)
 
-Cron uchun URL:
+### Netlify’da (tavsiya)
+Repo ichida `netlify/functions/push-auto.js` bor — u **har soatda avtomatik** ishlaydi (published deploy’da). citeturn0search0
+
+Shuning uchun alohida cron-job qo‘yish shart emas.
+
+### Boshqa hosting bo‘lsa
+Siz baribir shu endpoint’ni cron bilan chaqirishingiz mumkin:
 
 ```
 GET /api/push/auto?key=YOUR_PUSH_CRON_KEY
 ```
-
-Masalan, har 30 daqiqada yoki kuniga 1 marta chaqirib tursangiz bo‘ladi.

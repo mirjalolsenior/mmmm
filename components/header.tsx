@@ -1,5 +1,3 @@
-import { PushControls } from "@/components/push/push-controls"
-
 interface HeaderProps {
   title: string
   subtitle?: string
@@ -28,9 +26,7 @@ export function Header({ title, subtitle }: HeaderProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <PushControls />
-      </div>
+      <div className="flex items-center gap-4" />
     </header>
   )
 }

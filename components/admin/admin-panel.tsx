@@ -9,6 +9,7 @@ import { LogOut, Database, Users, Package, FileText, Settings, AlertTriangle, Ch
 import { AdminDeletionPanel } from "./admin-deletion-panel"
 import { AdminSelectiveDeletion } from "./admin-selective-deletion"
 import { AdminEditPanel } from "./admin-edit-panel"
+import { PushControls } from "@/components/push/push-controls"
 
 interface AdminPanelProps {
   onLogout: () => void
@@ -234,6 +235,18 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  <div className="rounded-xl border bg-background/50 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-base font-semibold">Bildirishnomalar</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Android va iOS 16.4+ (PWA o‘rnatilganda) uchun pushni yoqish va test qilish.
+                        </p>
+                      </div>
+                      <PushControls />
+                    </div>
+                  </div>
+
                   <div className="text-center py-8">
                     <Settings className="w-16 h-16 text-muted-foreground mx-auto mb-4 animate-float" />
                     <h3 className="text-lg font-semibold mb-2">Tizim sozlamalari</h3>
