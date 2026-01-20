@@ -111,19 +111,19 @@ export function PushControls() {
     try {
       setStatus("working")
       setMsg("")
-      const res = await fetch("/api/push/send", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          title: "Mebel Sherdor",
-          body: "Test bildirishnoma ✅",
-          url: "/",
-        }),
-      })
+      // Test tugmasi endi "AUTO" logikani ham ishga tushiradi:
+      // - tovar kam bo'lsa
+      // - zakaz 1 kun qolganda / o'sha kuni / muddati o'tib ketganda
+      const res = await fetch("/api/push/auto?manual=1", { method: "GET" })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(j?.error || "Send xatosi")
       setStatus("enabled")
-      setMsg(`Yuborildi. OK: ${j.ok}, Failed: ${j.failed}, Removed: ${j.removed}`)
+      const sent = Array.isArray(j?.sent) ? j.sent : []
+      const summary = sent
+        .map((x: any) => `${x.type}: OK ${x.ok ?? 0}, Failed ${x.failed ?? 0}, Removed ${x.removed ?? 0}`)
+        .join(" | ")
+
+      setMsg(summary || j?.message || "Auto tekshirildi (yuboriladigan xabar topilmadi).")
     } catch (e: any) {
       setStatus("error")
       setMsg(e?.message || "Xatolik")

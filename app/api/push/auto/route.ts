@@ -102,9 +102,14 @@ export async function GET(req: Request) {
     // Optional protection for cron calls
     const required = process.env.PUSH_CRON_KEY
     if (required) {
-      const provided = url.searchParams.get("key") || req.headers.get("x-cron-key")
-      if (!provided || provided !== required) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      // Manual run (UI test button) can bypass the cron key.
+      // NOTE: If you want strict protection, remove this and pass the key from a trusted server only.
+      const isManual = url.searchParams.get("manual") === "1"
+      if (!isManual) {
+        const provided = url.searchParams.get("key") || req.headers.get("x-cron-key")
+        if (!provided || provided !== required) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        }
       }
     }
 
